@@ -43,8 +43,6 @@ class Webuntis implements WebuntisInterface
     $this->client = new Client($url);
     $this->serializer = new Serializer([new CustomNormalizer, new GetSetMethodNormalizer]);
     $this->cache = new FilesystemCache("webuntis.{$server}.{$school}",300,'cache');
-    //$this->cache = new ArrayCache(0,false);
-    $this->cache->clear();
   }
   
   // Authenticate to the API

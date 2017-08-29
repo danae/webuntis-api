@@ -9,6 +9,7 @@ use Silex\Application;
 use Silex\ControllerCollection;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -76,11 +77,16 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $classes = array_map(function($classId) use ($webuntis, $year) {
       return $webuntis->getClasses($year)->get((int)$classId);
     },explode(',',$classIds));
+    
+    var_dump($classes);
   
     // Get the complete timetable
     $timetable = [];
     foreach ($classes as $class)
-      $timetable = array_merge($timetable,$webuntis->getTimetable($class,$year->getStartDate(),$year->getEndDate())->findAll());
+    {
+      if ($class !== null)
+        $timetable = array_merge($timetable,$webuntis->getTimetable($class,$year->getStartDate(),$year->getEndDate())->findAll());
+    }
     
     // Sort the timetable by time
     usort($timetable,[TimetableModel::class,'compare']);
@@ -122,7 +128,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
       {
         // Check if credentials are given
         if ($request->getUser() === null)
-          throw new UnauthorizedHttpException("Basic realm={$server}:{$school}",'You must provide your credentials');
+          throw new UnauthorizedHttpException("Basic",'You must provide your credentials');
         
         // Create a new endpoint
         $webuntis = new Webuntis($request->attributes->get('server'),$request->attributes->get('school'));
@@ -134,9 +140,9 @@ class WebuntisControllerProvider implements ControllerProviderInterface
       catch (UnauthorizedException $ex)
       {
         if ($ex->getCode() === -8504)
-          throw new UnauthorizedHttpException("Basic realm={$server}:{$school}",'You provided invalid credentials');
+          throw new UnauthorizedHttpException("Basic",'You provided invalid credentials');
         else if ($ex->getCode() === -8520)
-          throw new UnauthorizedHttpException("Basic realm={$server}:{$school}",'You are not authorized');
+          throw new UnauthorizedHttpException("Basic",'You are not authorized');
         else
           throw $ex;
       }
@@ -146,14 +152,15 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->after(function(Request $request) 
     {
       // Log out from the endpoint
-      $request->attributes->get('webuntis')->logout();
+      if ($request->attributes->has('webuntis'))
+        $request->attributes->get('webuntis')->logout();
     });
     
     // Add controllers
     $controllers->get('/years',[$this,'getYears']);
     $controllers->get('/years/{yearId}/classes',[$this,'getClasses']);
     $controllers->get('/departments',[$this,'getDepartments']);
-    $controllers->get('/timetable/{yearId}/{classesIds}.ics',[$this,'getTimetable']);
+    $controllers->get('/timetable/{yearId}/{classIds}.ics',[$this,'getTimetable']);
     
     // Return the controllers
     return $controllers;
