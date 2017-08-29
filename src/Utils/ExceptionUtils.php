@@ -2,7 +2,8 @@
 namespace Webuntis\Utils;
 
 use JsonRPC\Exception\ResponseException;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Webuntis\Exception\JsonRpcException;
+use Webuntis\Exception\UnauthorizedException;
 
 class ExceptionUtils
 {
@@ -10,10 +11,10 @@ class ExceptionUtils
   public static function handleException(ResponseException $ex)
   {
     if ($ex->getCode() === -8520)
-      return new AccessDeniedHttpException("Not authenticated");
+      return new UnauthorizedException("Not authenticated");
     else if ($ex->getCode() === -8506)
-      return new AccessDeniedHttpException("Bad credentials");
+      return new UnauthorizedException("Bad credentials");
     else
-      return $ex;
+      return new JsonRpcException($ex->getMessage(),$ex->getCode(),$ex);
   }
 }
