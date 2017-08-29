@@ -9,13 +9,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use Webuntis\Model\TimetableModel;
-use Webuntis\Webuntis;
+use Webuntis\WebuntisServiceProvider;
 
 // Create an application
 $app = new Application();
@@ -35,9 +34,12 @@ $app->error(function(Exception $ex) {
     return new JsonResponse(['error' => $ex->getMessage(),'exceptionThrown' => get_class($ex)],500);
 });
 
-// Add support for CORS requests
+// Add the CORS Service and add support for CORS requests
 $app->register(new CorsServiceProvider);
 $app->after($app['cors']);
+
+// Add the Webuntis service
+$app->register(new WebuntisServiceProvider());
 
 // Add a serializer service
 $app['serializer'] = function() {
@@ -47,13 +49,8 @@ $app['serializer'] = function() {
 // Get all years
 $app->get('/{server}/{school}/years',function($server, $school, Request $request, Application $app)  
 {
-  // Check if credentials are given
-  if ($request->getUser() === null)
-    throw new UnauthorizedHttpException('Basic','You must provide your credentials to WebUntis');
-  
   // Create an endpoint
-  $webuntis = new Webuntis($server,$school);
-  $webuntis->login($request->getUser(),$request->getPassword());
+  $webuntis = $app['webuntis']($server,$school,$request);
   
   // Get the years
   $years = $webuntis->getYears()->findAll();
@@ -69,13 +66,8 @@ $app->get('/{server}/{school}/years',function($server, $school, Request $request
 // Get all departments
 $app->get('/{server}/{school}/departments',function($server, $school, Request $request, Application $app)  
 {
-  // Check if credentials are given
-  if ($request->getUser() === null)
-    throw new UnauthorizedHttpException('Basic','You must provide your credentials to WebUntis');
-  
   // Create an endpoint
-  $webuntis = new Webuntis($server,$school);
-  $webuntis->login($request->getUser(),$request->getPassword());
+  $webuntis = $app['webuntis']($server,$school,$request);
   
   // Get the departments
   $departments = $webuntis->getDepartments()->findAll();
@@ -91,16 +83,13 @@ $app->get('/{server}/{school}/departments',function($server, $school, Request $r
 // Get all classes of a year
 $app->get('/{server}/{school}/years/{yearId}/classes',function($server, $school, $yearId, Request $request, Application $app)  
 {
-  // Check if credentials are given
-  if ($request->getUser() === null)
-    throw new UnauthorizedHttpException('Basic','You must provide your credentials to WebUntis');
-  
   // Create an endpoint
-  $webuntis = new Webuntis($server,$school);
-  $webuntis->login($request->getUser(),$request->getPassword());
+  $webuntis = $app['webuntis']($server,$school,$request);
   
   // Get the year
-  $year = $webuntis->getYears()->get($yearId);
+  $year = $webuntis->getYears()->get((int)$yearId);
+  if ($year === null)
+    $app->abort(400,'Found no year for id ' . $yearId);
   
   // Get the classes
   $classes = $webuntis->getClasses($year)->findAll();
@@ -116,16 +105,11 @@ $app->get('/{server}/{school}/years/{yearId}/classes',function($server, $school,
 // Get the timetable for a class
 $app->get('/{server}/{school}/years/{yearId}/timetable/{classesIds}',function($server, $school, $yearId, $classesIds, Request $request, Application $app)  
 {
-  // Check if credentials are given
-  if ($request->getUser() === null)
-    throw new UnauthorizedHttpException('Basic','You must provide your credentials to WebUntis');
-  
   // Create an endpoint
-  $webuntis = new Webuntis($server,$school);
-  $webuntis->login($request->getUser(),$request->getPassword());
+  $webuntis = $app['webuntis']($server,$school,$request);
   
   // Get the year
-  $year = $webuntis->getYears()->get($yearId);
+  $year = $webuntis->getYears()->get((int)$yearId);
   
   // Get the classes
   $classes = array_map(function($classId) use ($webuntis, $year) {
@@ -149,13 +133,8 @@ $app->get('/{server}/{school}/years/{yearId}/timetable/{classesIds}',function($s
 // Get the iCalendar for a class
 $app->get('/{server}/{school}/years/{yearId}/export/{classesIds}.ics',function($server, $school, $yearId, $classesIds, Request $request, Application $app)  
 {
-  // Check if credentials are given
-  if ($request->getUser() === null)
-    throw new UnauthorizedHttpException('Basic','You must provide your credentials to WebUntis');
-  
   // Create an endpoint
-  $webuntis = new Webuntis($server,$school);
-  $webuntis->login($request->getUser(),$request->getPassword());
+  $webuntis = $app['webuntis']($server,$school,$request);
   
   // Get the year
   $year = $webuntis->getYears()->get($yearId);

@@ -4,8 +4,7 @@ namespace Webuntis;
 use DateTime;
 use InvalidArgumentException;
 use JsonRPC\Client;
-use JsonRPC\Exception\ResponseException;
-use Symfony\Component\Cache\Simple\ArrayCache;
+use Symfony\Component\Cache\Simple\FilesystemCache;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Serializer\Normalizer\CustomNormalizer;
 use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
@@ -27,7 +26,7 @@ use Webuntis\Utils\DateTimeUtils;
 class Webuntis implements WebuntisInterface
 {
   // Constants
-  const endpoint_url = "https://%s.webuntis.com/WebUntis/jsonrpc.do?school=%s";
+  const endpoint_url = "https://%s/WebUntis/jsonrpc.do?school=%s";
   
   // Variables
   private $client;
@@ -42,33 +41,26 @@ class Webuntis implements WebuntisInterface
     
     $this->client = new Client($url);
     $this->serializer = new Serializer([new CustomNormalizer, new GetSetMethodNormalizer]);
-    //$this->cache = new FilesystemCache("webuntis.{$server}.{$school}",300,'cache');
-    $this->cache = new ArrayCache(0,false);
+    $this->cache = new FilesystemCache("webuntis.{$server}.{$school}",300,'cache');
+    //$this->cache = new ArrayCache(0,false);
     $this->cache->clear();
   }
   
   // Authenticate to the API
   public function login(string $user, string $password)
   {
-    try
-    {
-      // Try to authenticate to the API
-      $result = $this->client->execute('authenticate',[$user,$password]);
+    // Try to authenticate to the API
+    $result = $this->client->execute('authenticate',[$user,$password]);
       
-      // Set the session
-      $this->session = $result['sessionId'];
-    }
-    catch (ResponseException $ex)
-    {
-      throw new UnauthorizedHttpException($ex->getMessage());
-    }
+    // Set the session
+    $this->session = $result['sessionId'];
   }
   
   // Log out the current session
   public function logout()
   {
-    //if (is_null($this->session))
-    //  throw new AccessDeniedHttpException('You are not logged in');
+    if (is_null($this->session))
+      throw new UnauthorizedHttpException('Basic','You are not logged in');
     
     // Try to log out
     $this->client->execute('logout');
@@ -80,30 +72,23 @@ class Webuntis implements WebuntisInterface
   // Get years
   public function getYears(): YearCollection
   {
-    try
-    {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("years"))
-        return $this->cache->get("years");
+    // Check if the collection is cached
+    if ($this->cache->hasItem("years"))
+      return $this->cache->get("years");
     
-      // Get the results
-      $results = $this->client->execute('getSchoolyears');
+    // Get the results
+    $results = $this->client->execute('getSchoolyears');
       
-      // Create a collection of the results
-      $collection = new YearCollection(array_map(function($result) {
-        return $this->serializer->denormalize($result,YearModel::class,null,['database' => $this]);
-      },$results));
-      
-      // Cache the collection
-      $this->cache->set("years",$collection);
-      
-      // Return the collection
-      return $collection;
-    }
-    catch (ResponseException $ex)
-    {
-      
-    }
+    // Create a collection of the results
+    $collection = new YearCollection(array_map(function($result) {
+      return $this->serializer->denormalize($result,YearModel::class,null,['database' => $this]);
+    },$results));
+    
+    // Cache the collection
+    $this->cache->set("years",$collection);
+    
+    // Return the collection
+    return $collection;
   }
   
   // Get holidays
