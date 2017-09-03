@@ -77,8 +77,6 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $classes = array_map(function($classId) use ($webuntis, $year) {
       return $webuntis->getClasses($year)->get((int)$classId);
     },explode(',',$classIds));
-    
-    var_dump($classes);
   
     // Get the complete timetable
     $timetable = [];
