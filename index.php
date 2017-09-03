@@ -33,6 +33,7 @@ $app->after(function(Request $request, Response $response) {
 
 // Add the CORS Service and add support for CORS requests
 $app->register(new CorsServiceProvider);
+$app['cors.allowCredentials'] = true;
 $app->after($app['cors']);
 
 // Add a serializer service
