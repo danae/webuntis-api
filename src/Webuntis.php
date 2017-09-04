@@ -261,10 +261,6 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      //if ($this->cache->hasItem("timetable"))
-        //return $this->cache->get("timetable");
-    
       // Get the type of the object
       if (is_a($object,ClassModel::class))
         $type = TimetableModel::TYPE_CLASS;
@@ -287,9 +283,6 @@ class Webuntis implements WebuntisInterface
       $collection = new TimetableCollection(array_map(function($result) {
         return $this->serializer->denormalize($result,TimetableModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      //$this->cache->set("timetable",$collection);
       
       // Return the collection
       return $collection;

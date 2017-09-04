@@ -63,6 +63,32 @@ class TimetableModel extends Model implements DenormalizableInterface
     return $this;
   }
   
+  // Return a merged timetable from this timetable and another timetable
+  public function append(TimetableModel $other): TimetableModel
+  {
+    // Check if the timetables can be merged
+    if (!$this->isAppendable($other))
+      throw new InvalidArgumentException('The specified timetables cannot be merged');
+    
+    // Merge the timetables
+    return (new TimetableModel)
+      ->setId($this->getId())
+      ->setStartTime($this->getStartTime())
+      ->setEndTime($other->getEndTime())
+      ->setClasses($this->getClasses())
+      ->setSubjects($this->getSubjects())
+      ->setRooms($this->getRooms());
+  }
+  
+  // Return if this timetable can be appended with another timetable
+  public function isAppendable(TimetableModel $other): bool
+  {
+    return $this->getEndTime() == $other->getStartTime()
+      && $this->getClasses() == $other->getClasses()
+      && $this->getSubjects() == $other->getSubjects()
+      && $this->getRooms() == $other->getRooms();
+  }
+  
   // Denormalize this timetable
   public function denormalize(DenormalizerInterface $denormalizer, $data, $format = null, array $context = []): self
   {
