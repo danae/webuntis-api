@@ -83,7 +83,7 @@ class TimetableModel extends Model implements DenormalizableInterface
   // Return if this timetable can be appended with another timetable
   public function isAppendable(TimetableModel $other): bool
   {
-    return $this->getEndTime() == $other->getStartTime()
+    return $this->getEndTime()->getTimestamp() - $other->getStartTime()->getTimestamp() <= 900
       && $this->getClasses() == $other->getClasses()
       && $this->getSubjects() == $other->getSubjects()
       && $this->getRooms() == $other->getRooms();

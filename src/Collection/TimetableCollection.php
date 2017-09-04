@@ -25,10 +25,15 @@ class TimetableCollection extends Collection
         
         // Remove the current timetable
         unset($this->map[$id]);
+        
+        // Set the last timetable to the merged timetable
+        $lastTimetable = $newTimetable;
       }
-      
-      // Set the last timetable
-      $lastTimetable = $timetable;
+      else
+      {
+        // Set the last timetable
+        $lastTimetable = $timetable;
+      }
     }
   }
 }
