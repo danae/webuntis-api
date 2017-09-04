@@ -66,7 +66,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
   }
   
   // Get the iCalendar for a class
-  public function getTimetable(WebuntisInterface $webuntis, $yearId, $classIds)
+  public function getTimetable(WebuntisInterface $webuntis, $yearId, $classIds, Request $request)
   {
     // Get the year
     $year = $webuntis->getYears()->get((int)$yearId);
@@ -77,13 +77,24 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $classes = array_map(function($classId) use ($webuntis, $year) {
       return $webuntis->getClasses($year)->get((int)$classId);
     },explode(',',$classIds));
+    
+    // Get the start and end date if specified
+    if ($request->query->has('startDate'))
+      $startDate = DateTime::createFromFormat('Y-m-d',$request->query->get('startDate'));
+    else
+      $startDate = $year->getStartDate();
+    
+    if ($request->query->has('endDate'))
+      $endDate = DateTime::createFromFormat('Y-m-d',$request->query->get('endDate'));
+    else
+      $endDate = $year->getEndDate();
   
     // Get the complete timetable
     $timetable = [];
     foreach ($classes as $class)
     {
       if ($class !== null)
-        $timetable = array_merge($timetable,$webuntis->getTimetable($class,$year->getStartDate(),$year->getEndDate())->findAll());
+        $timetable = array_merge($timetable,$webuntis->getTimetable($class,$startDate,$endDate)->findAll());
     }
     
     // Sort the timetable by time
