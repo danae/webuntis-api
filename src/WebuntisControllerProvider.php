@@ -108,7 +108,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     foreach ($timetable as $t)
     {
       $event = (new EventComponent)
-        ->setUID(sprintf("%s-%s-%d",$server,$school,$t->getId()))
+        ->setUID(sprintf("%s-%s-%d",$request->attributes->get('server'),$request->attributes->get('school'),$t->getId()))
         ->setTimestamp($now)
         ->setStartTime($t->getStartTime())
         ->setEndTime($t->getEndTime())
