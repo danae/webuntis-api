@@ -106,7 +106,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     // Get the year
     $year = $webuntis->getYears()->get((int)$yearId);
     if ($year === null)
-      throw new BadRequestHttpException('The specified year does not exist');
+      throw new NotFoundHttpException('The specified year does not exist');
   
     // Get the classes
     $classes = $webuntis->getClasses($year)->findAll();
@@ -122,7 +122,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     // Get the year
     $year = $webuntis->getYears()->get((int)$yearId);
     if ($year === null)
-      throw new BadRequestHttpException('The specified year does not exist');
+      throw new NotFoundHttpException('The specified year does not exist');
   
     // Get the class
     $class = $webuntis->getClasses($year)->get((int)$classId);
@@ -182,18 +182,86 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     return JsonResponse::fromJsonString($json);
   }
   
-  // Get the iCalendar for a class
-  public function getTimetable(WebuntisInterface $webuntis, $yearId, $classIds, Request $request)
+  // Create an iCalendar for a timetable array
+  private function createCalendar(array $timetable): CalendarComponent
+  {
+    // Create an iCalendar for the timetable
+    $calendar = new CalendarComponent;
+  
+    // Add all events
+    $now = new DateTime;
+    foreach ($timetable as $t)
+    {
+      $event = (new EventComponent)
+        ->setUID(sprintf("%s-%s-%d",$request->attributes->get('server'),$request->attributes->get('school'),$t->getId()))
+        ->setTimestamp($now)
+        ->setStartTime($t->getStartTime())
+        ->setEndTime($t->getEndTime())
+        ->setSummary(implode(', ',$t->getSubjects()))
+        ->setDescription(implode(', ',$t->getClasses()))
+       ->setLocation(implode(', ',$t->getRooms()));
+      $calendar->add($event);
+    }
+  }
+  
+  // Get the timetable for classes
+  public function getTimetable(WebuntisInterface $webuntis, $yearId, $list, Request $request)
   {
     // Get the year
     $year = $webuntis->getYears()->get((int)$yearId);
     if ($year === null)
-      throw new BadRequestHttpException('No year found for yearId ' . $yearId);
+      throw new NotFoundHttpException('The specified year does not exist');
+    
+    // Get timetables
+    $timetable = array_column(array_map(function($listItem) use ($webuntis,$year) {
+      // Get the object
+      list($type,$id) = explode(':',$listItem,2);
+      
+      // Get the referred object
+      if ($type === 'class')
+      {
+        // Get the classes
+        $class = $webuntis->getClasses($year)->get((int)$id);
+        if ($class === null)
+          throw new NotFoundHttpException('The specified class does not exist');
+        
+        // Return the timetable
+        return $webuntis->getTimetable($class,$year->getStartDate(),$year->getEndDate())->findAll();
+      }
+      else if (type === 'subject')
+      {
+        return [];
+      }
+      else if (type === 'room')
+      {
+        return [];
+      }
+    },explode(',',$list)),1);
+    var_dump($timetable);
+    
+    // Sort the timetable by time
+    usort($timetable,[TimetableModel::class,'compare']);
+    
+    // Serialize the result and respond
+    $json = $this->serializer->serialize($timetable,'json');
+    return JsonResponse::fromJsonString($json);
+  }
+  
+  // Get the iCalendar for classes
+  public function getClassesCalendar(WebuntisInterface $webuntis, $yearId, $classIdList, Request $request)
+  {
+    // Get the year
+    $year = $webuntis->getYears()->get((int)$yearId);
+    if ($year === null)
+      throw new BadRequestHttpException('The specified year does not exist');
   
     // Get the classes
     $classes = array_map(function($classId) use ($webuntis, $year) {
-      return $webuntis->getClasses($year)->get((int)$classId);
-    },explode(',',$classIds));
+      $class = $webuntis->getClasses($year)->get((int)$classId);
+      if ($class === null)
+        throw new NotFoundHttpException('The specified class does not exist');
+      return $class;
+    },explode(',',$classIdList));
     
     // Get the start and end date if specified
     if ($request->query->has('startDate'))
@@ -214,26 +282,8 @@ class WebuntisControllerProvider implements ControllerProviderInterface
         $timetable = array_merge($timetable,$webuntis->getTimetable($class,$startDate,$endDate)->findAll());
     }
     
-    // Sort the timetable by time
-    usort($timetable,[TimetableModel::class,'compare']);
-  
-    // Create an iCalendar for the timetable
-    $calendar = new CalendarComponent;
-  
-    // Add all events
-    $now = new DateTime;
-    foreach ($timetable as $t)
-    {
-      $event = (new EventComponent)
-        ->setUID(sprintf("%s-%s-%d",$request->attributes->get('server'),$request->attributes->get('school'),$t->getId()))
-        ->setTimestamp($now)
-        ->setStartTime($t->getStartTime())
-        ->setEndTime($t->getEndTime())
-        ->setSummary(implode(', ',$t->getSubjects()))
-        ->setDescription(implode(', ',$t->getClasses()))
-       ->setLocation(implode(', ',$t->getRooms()));
-      $calendar->add($event);
-    }
+    // Create a calendar
+    $calendar = $this->createCalendar($timetable);
   
     // Respond the calendar
     $response = new Response($calendar->write());
@@ -287,7 +337,7 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/years/{yearId}',[$this,'getYear']);
     
     $controllers->get('/holidays/',[$this,'getHolidays']);
-    $controllers->get('/holidays/{holidayId',[$this,'getHoliday']);
+    $controllers->get('/holidays/{holidayId}',[$this,'getHoliday']);
     
     $controllers->get('/departments/',[$this,'getDepartments']);
     $controllers->get('/departments/{departmentId}',[$this,'getDepartment']);
@@ -301,7 +351,13 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/rooms/',[$this,'getRooms']);
     $controllers->get('/rooms/{roomId}',[$this,'getRoom']);
     
-    $controllers->get('/timetable/{yearId}/{classIds}.ics',[$this,'getTimetable']);
+    $controllers->get('/years/{yearId}/timetable/{list}',[$this,'getTimetable']);
+    
+    $controllers->get('/timetable/classes/{yearId}/{classIdList}.ics',[$this,'getClassesTimetable']);
+    $controllers->get('/timetable/subjects/{subjectIdList}.ics');
+    $controllers->get('/timetable/rooms/{roomIdList}.ics');
+    
+    // /v1/mese.webuntis.com/hku/timetable/class7-918,class7-917,class7-914,room247.ics
     
     // Return the controllers
     return $controllers;

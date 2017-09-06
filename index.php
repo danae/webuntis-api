@@ -19,7 +19,13 @@ $app = new Application();
 // Add exception handling
 $app->error(function(Exception $ex) {
   if (is_a($ex,HttpException::class))
-    return new JsonResponse(['error' => $ex->getMessage()],$ex->getStatusCode(),$ex->getHeaders());
+  {
+    if ($ex->getMessage() === '')
+      $message = Response::$statusTexts[$ex->getStatusCode()];
+    else
+      $message = $ex->getMessage();
+    return new JsonResponse(['error' => $message ?? $ex->getStatusCode()],$ex->getStatusCode(),$ex->getHeaders());
+  }
   else
     return new JsonResponse(['error' => $ex->getMessage(),'exceptionThrown' => get_class($ex)],500);
 });

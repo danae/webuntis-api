@@ -108,19 +108,19 @@ class TimetableModel extends Model implements DenormalizableInterface
     $year = $context['database']->getYears()->contains($startTime);
     
     // Get the classes
-    $classes = [];
-    foreach ($data['kl'] as $class)
-      $classes[] = $context['database']->getClasses($year)->get($class['id']);
+    $classes = array_map(function($classId) use ($context,$year) {
+      return $context['database']->getClasses($year)->get($classId);
+    },array_column($data['kl'],'id'));
     
     // Get the subjects
-    $subjects = [];
-    foreach ($data['su'] as $subject)
-      $subjects[] = $context['database']->getSubjects()->get($subject['id']);
+    $subjects = array_map(function($subjectId) use ($context) {
+      return $context['database']->getSubjects()->get($subjectId);
+    },array_column($data['su'],'id'));
     
     // Get the rooms
-    $rooms = [];
-    foreach ($data['ro'] as $room)
-      $rooms[] = $context['database']->getRooms()->get($room['id']);
+    $rooms = array_map(function($roomId) use ($context) {
+      return $context['database']->getRooms()->get($roomId);
+    },array_column($data['su'],'id'));
     
     // Return the timetable
     return $this
