@@ -409,8 +409,8 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/departments/',[$this,'getDepartments']);
     $controllers->get('/departments/{departmentId}',[$this,'getDepartment']);
     
-    $controllers->get('/classes/year:{yearId}/',[$this,'getClasses']);
-    $controllers->get('/classes/year:{yearId}/{classId}',[$this,'getClass']);
+    $controllers->get('/classes/{yearId}/',[$this,'getClasses']);
+    $controllers->get('/classes/{yearId}/{classId}',[$this,'getClass']);
     
     $controllers->get('/subjects/',[$this,'getSubjects']);
     $controllers->get('/subjects/{subjectId}',[$this,'getSubject']);
