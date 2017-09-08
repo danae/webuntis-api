@@ -11,6 +11,9 @@ use Webuntis\Model\YearModel;
 
 interface WebuntisInterface
 {
+  // Return an object by identifier and type
+  public function getObject(int $id, $class): ModelInterface;
+  
   // Return the years
   public function getYears(): YearCollection;
   
@@ -31,4 +34,7 @@ interface WebuntisInterface
   
   // Return the timetable for a class, subject or room
   public function getTimetable(ModelInterface $object, DateTime $startDate, DateTime $endDate): TimetableCollection;
+  
+  // Return multiple timetables
+  public function getMultipleTimetables(array $objects, DateTime $startDate, DateTime $endDate): TimetableCollection;
 }

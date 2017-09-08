@@ -4,7 +4,6 @@ namespace Webuntis;
 use DateTime;
 use InvalidArgumentException;
 use JsonRPC\Client;
-use Symfony\Component\Cache\Simple\FilesystemCache;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Serializer\Normalizer\CustomNormalizer;
 use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
@@ -32,8 +31,16 @@ class Webuntis implements WebuntisInterface
   // Variables
   private $client;
   private $serializer;
-  private $cache;
   private $session;
+  
+  // Cache variables
+  private $years;
+  private $holidays;
+  private $departments;
+  private $classes;
+  private $subjects;
+  private $rooms;
+  private $timetables;
   
   // Constructor
   public function __construct(string $server, string $school)
@@ -42,7 +49,6 @@ class Webuntis implements WebuntisInterface
     
     $this->client = new Client($url);
     $this->serializer = new Serializer([new CustomNormalizer, new GetSetMethodNormalizer]);
-    $this->cache = new FilesystemCache("webuntis.{$server}.{$school}",300,'cache');
   }
   
   // Authenticate to the API
@@ -82,28 +88,39 @@ class Webuntis implements WebuntisInterface
     }
   }
   
+  // Return an object by identifier and type
+  public function getObject(int $id, $class): ModelInterface
+  {
+    if ($class === YearModel::class)
+      return $this->getYears()->get($id);
+    else if ($class === HolidayModel::class)
+      return $this->getHolidays()->get($id);
+    else if ($class === DepartmentModel::class)
+      return $this->getDepartments()->get($id);
+    else if ($class === SubjectModel::class)
+      return $this->getSubjects()->get($id);
+    else if ($class === Room::class)
+      return $this->getRooms()->get($id);
+    else
+      throw new InvalidArgumentException("Cannot fetch objects with class {$class}");
+  }
+  
   // Get years
   public function getYears(): YearCollection
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("years"))
-        return $this->cache->get("years");
-    
+      // If already fetched, then return the cache
+      if ($this->years !== null)
+        return $this->years;
+      
       // Get the results
       $results = $this->client->execute('getSchoolyears');
       
       // Create a collection of the results
-      $collection = new YearCollection(array_map(function($result) {
+      return $this->years = new YearCollection(array_map(function($result) {
         return $this->serializer->denormalize($result,YearModel::class,null,['database' => $this]);
       },$results));
-    
-      // Cache the collection
-      $this->cache->set("years",$collection);
-    
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -116,23 +133,17 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("holidays"))
-        return $this->cache->get("holidays");
-    
+      // If already fetched, then return the cache
+      if ($this->holidays !== null)
+        return $this->holidays;
+      
       // Get the results
       $results = $this->client->execute('getHolidays');
       
       // Create a collection of the results
-      $collection = new HolidayCollection(array_map(function($result) {
+      return $this->holidays = new HolidayCollection(array_map(function($result) {
         return $this->serializer->denormalize($result,HolidayModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      $this->cache->set("holidays",$collection);
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -145,23 +156,17 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("departments"))
-        return $this->cache->get("departments");
-    
+      // If already fetched, then return the cache
+      if ($this->departments !== null)
+        return $this->departments;
+      
       // Get the results
       $results = $this->client->execute('getDepartments');
       
       // Create a collection of the results
-      $collection = new Collection(array_map(function($result) {
+      return $this->departments = new Collection(array_map(function($result) {
         return $this->serializer->denormalize($result,DepartmentModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      $this->cache->set("departments",$collection);
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -174,23 +179,21 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("classes.{$year->getId()}"))
-        return $this->cache->get("classes.{$year->getId()}");
-    
+      // If the classes array isn't an array, create it
+      if ($this->classes === null)
+        $this->classes = [];
+      
+      // If already fetched, then return the cache
+      if ($this->classes[$year->getId()] !== null)
+        return $this->classes[$year->getId()];
+      
       // Get the results
       $results = $this->client->execute('getKlassen',['schoolyearId' => $year->getId()]);
       
       // Create a collection of the results
-      $collection = new Collection(array_map(function($result) {
+      return $this->classes[$year->getId()] = new Collection(array_map(function($result) {
         return $this->serializer->denormalize($result,ClassModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      $this->cache->set("classes.{$year->getId()}",$collection);
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -203,23 +206,17 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("subjects"))
-        return $this->cache->get("subjects");
-    
+      // If already fetched, then return the cache
+      if ($this->subjects !== null)
+        return $this->subjects;
+      
       // Get the results
       $results = $this->client->execute('getSubjects');
       
       // Create a collection of the results
-      $collection = new Collection(array_map(function($result) {
+      return $this->subjects = new Collection(array_map(function($result) {
         return $this->serializer->denormalize($result,SubjectModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      $this->cache->set("subjects",$collection);
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -232,23 +229,17 @@ class Webuntis implements WebuntisInterface
   {
     try
     {
-      // Check if the collection is cached
-      if ($this->cache->hasItem("rooms"))
-        return $this->cache->get("rooms");
-    
+      // If already fetched, then return the cache
+      if ($this->rooms !== null)
+        return $this->rooms;
+      
       // Get the results
       $results = $this->client->execute('getRooms');
       
       // Create a collection of the results
-      $collection = new Collection(array_map(function($result) {
+      return $this->rooms = new Collection(array_map(function($result) {
         return $this->serializer->denormalize($result,RoomModel::class,null,['database' => $this]);
       },$results));
-      
-      // Cache the collection
-      $this->cache->set("rooms",$collection);
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
@@ -260,7 +251,7 @@ class Webuntis implements WebuntisInterface
   public function getTimetable(ModelInterface $object, DateTime $startDate, DateTime $endDate): TimetableCollection
   {
     try
-    {
+    {      
       // Get the type of the object
       if (is_a($object,ClassModel::class))
         $type = TimetableModel::TYPE_CLASS;
@@ -270,6 +261,16 @@ class Webuntis implements WebuntisInterface
         $type = TimetableModel::TYPE_ROOM;
       else
         throw new InvalidArgumentException("Object must be a class, subject or room");
+      
+      // If the timetables array isn't an array, create it
+      if ($this->timetables === null)
+        $this->timetables = [];
+      if ($this->timetable[$type] === null)
+        $this->timetables[$type] = [];
+      
+      // If already fetched, then return the cache
+      if ($this->timetables[$type][$object->getId()] !== null)
+        return $this->timetables[$type][$object->getId()];
     
       // Get the results
       $results = $this->client->execute('getTimetable',[
@@ -280,16 +281,36 @@ class Webuntis implements WebuntisInterface
       ]);
       
       // Create a collection of the results
-      $collection = new TimetableCollection(array_map(function($result) {
+      return $this->timetables[$type][$object->getId()] = new TimetableCollection(array_map(function($result) {
         return $this->serializer->denormalize($result,TimetableModel::class,null,['database' => $this]);
       },$results));
-      
-      // Return the collection
-      return $collection;
     }
     catch (Exception $ex)
     {
       throw ExceptionUtils::handleException($ex);
     }
+  }
+  
+  // Return multiple timetables
+  public function getMultipleTimetables(array $objects, DateTime $startDate, DateTime $endDate): TimetableCollection
+  {
+    // Create an empty timetable
+    $timetable = [];
+    
+    // Iterate over the objects
+    foreach ($objects as $object)
+    {
+      // Get the timetable
+      $objectTimetable = $this->getTimetable($object,$startDate,$endDate)->findAll();
+      
+      // Merge it with the total timetable
+      $timetable = array_merge($timetable,$objectTimetable);
+    }
+    
+    // Create a collection of the results
+    $collection = new TimetableCollection($timetable);
+    
+    // Return the collection
+    return $collection;
   }
 }

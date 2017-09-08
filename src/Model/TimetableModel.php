@@ -83,7 +83,7 @@ class TimetableModel extends Model implements DenormalizableInterface
   // Return if this timetable can be appended with another timetable
   public function isAppendable(TimetableModel $other): bool
   {
-    return $this->getEndTime()->getTimestamp() - $other->getStartTime()->getTimestamp() <= 900
+    return $other->getStartTime()->getTimestamp() - $this->getEndTime()->getTimestamp() <= 900
       && $this->getClasses() == $other->getClasses()
       && $this->getSubjects() == $other->getSubjects()
       && $this->getRooms() == $other->getRooms();
@@ -120,7 +120,7 @@ class TimetableModel extends Model implements DenormalizableInterface
     // Get the rooms
     $rooms = array_map(function($roomId) use ($context) {
       return $context['database']->getRooms()->get($roomId);
-    },array_column($data['su'],'id'));
+    },array_column($data['ro'],'id'));
     
     // Return the timetable
     return $this

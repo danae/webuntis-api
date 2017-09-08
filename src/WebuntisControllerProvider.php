@@ -10,12 +10,11 @@ use Silex\ControllerCollection;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Serializer\SerializerInterface;
 use Webuntis\Exception\UnauthorizedException;
-use Webuntis\Model\TimetableModel;
+use Webuntis\Model\YearModel;
 
 class WebuntisControllerProvider implements ControllerProviderInterface
 {
@@ -27,164 +26,54 @@ class WebuntisControllerProvider implements ControllerProviderInterface
   {
     $this->serializer = $serializer;
   }
-
-  // Get all years
-  public function getYears(WebuntisInterface $webuntis, Request $request)
-  {
-    // Get the years
-    $years = $webuntis->getYears()->findAll();
   
-    // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($years),'json');
+  // Respond a single object
+  private function respond($object): Response
+  {
+    $json = $this->serializer->serialize($object,'json');
     return JsonResponse::fromJsonString($json);
   }
   
-  // Get a single year
-  public function getYear(WebuntisInterface $webuntis, $yearId)
+  // Respond multiple objects
+  private function respondArray($objects): Response
   {
-    // Get the year
-    $year = $webuntis->getYears()->get((int)$yearId);
-    if ($year === null)
-      throw new NotFoundHttpException('The specified year does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($year,'json');
+    $json = $this->serializer->serialize(array_values($objects),'json');
     return JsonResponse::fromJsonString($json);
   }
   
-  // Get all holidays
-  public function getHolidays(WebuntisInterface $webuntis, Request $request)
+  // Get a timetable
+  private function getTimetable(array $objects, YearModel $year, WebuntisInterface $webuntis, Request $request)
   {
-    // Get the holidays
-    $holidays = $webuntis->getHolidays()->findAll();
+    // Get the start and end date if specified
+    if ($request->query->has('startDate'))
+      $startDate = DateTime::createFromFormat('Y-m-d',$request->query->get('startDate'));
+    else
+      $startDate = $year->getStartDate();
+    if ($request->query->has('endDate'))
+      $endDate = DateTime::createFromFormat('Y-m-d',$request->query->get('endDate'));
+    else
+      $endDate = $year->getEndDate();
+    
+    // Return the timetable
+    return $webuntis->getMultipleTimetables($objects,$startDate,$endDate)->findAll();
+  }
+  
+  // Get a timetable and respond it
+  private function respondTimetable(array $objects, YearModel $year, WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the timetable
+    $timetable = $this->getTimetable($objects,$year,$webuntis,$request);
     
     // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($holidays),'json');
-    return JsonResponse::fromJsonString($json);
+    return $this->respondArray($timetable);
   }
   
-  // Get a single holiday
-  public function getHoliday(WebuntisInterface $webuntis, $holidayId)
+  // Get a timetable and respond its calendar
+  private function respondTimetableAsCalendar(array $objects, YearModel $year, WebuntisInterface $webuntis, Request $request)
   {
-    // Get the holiday
-    $holiday = $webuntis->getHolidays()->get((int)$holidayId);
-    if ($holiday === null)
-      throw new NotFoundHttpException('The specified holiday does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($holiday,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get all departments
-  public function getDepartments(WebuntisInterface $webuntis, Request $request)
-  {
-    // Get the departments
-    $departments = $webuntis->getDepartments()->findAll();
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($departments),'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get a single department
-  public function getDepartment(WebuntisInterface $webuntis, $departmentId)
-  {
-    // Get the department
-    $department = $webuntis->getDepartments()->get((int)$departmentId);
-    if ($department === null)
-      throw new NotFoundHttpException('The department room does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($department,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get all classes for a year
-  public function getClasses(WebuntisInterface $webuntis, $yearId, Request $request)
-  {
-    // Get the year
-    $year = $webuntis->getYears()->get((int)$yearId);
-    if ($year === null)
-      throw new NotFoundHttpException('The specified year does not exist');
-  
-    // Get the classes
-    $classes = $webuntis->getClasses($year)->findAll();
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($classes),'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get a single class for a year
-  public function getClass(WebuntisInterface $webuntis, $yearId, $classId)
-  {
-    // Get the year
-    $year = $webuntis->getYears()->get((int)$yearId);
-    if ($year === null)
-      throw new NotFoundHttpException('The specified year does not exist');
-  
-    // Get the class
-    $class = $webuntis->getClasses($year)->get((int)$classId);
-    if ($class === null)
-      throw new NotFoundHttpException('The specified class does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($class,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get all subjects
-  public function getSubjects(WebuntisInterface $webuntis, Request $request)
-  {
-    // Get the subjects
-    $subjects = $webuntis->getSubjects()->findAll();
+    // Get the timetable
+    $timetable = $this->getTimetable($objects,$year,$webuntis,$request);
     
-    // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($subjects),'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get a single subject
-  public function getSubject(WebuntisInterface $webuntis, $subjectId)
-  {
-    // Get the subject
-    $subject = $webuntis->getSubjects()->get((int)$subjectId);
-    if ($subject === null)
-      throw new NotFoundHttpException('The specified subject does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($subject,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get all rooms
-  public function getRooms(WebuntisInterface $webuntis, Request $request)
-  {
-    // Get the rooms
-    $rooms = $webuntis->getRooms()->findAll();
-    
-    // Serialize the result and respond
-    $json = $this->serializer->serialize(array_values($rooms),'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get a single room
-  public function getRoom(WebuntisInterface $webuntis, $roomId)
-  {
-    // Get the room
-    $room = $webuntis->getRooms()->get((int)$roomId);
-    if ($room === null)
-      throw new NotFoundHttpException('The specified room does not exist');
-  
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($room,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Create an iCalendar for a timetable array
-  private function createCalendar(array $timetable): CalendarComponent
-  {
     // Create an iCalendar for the timetable
     $calendar = new CalendarComponent;
   
@@ -202,93 +91,271 @@ class WebuntisControllerProvider implements ControllerProviderInterface
        ->setLocation(implode(', ',$t->getRooms()));
       $calendar->add($event);
     }
+  
+    // Respond the calendar
+    $response = new Response($calendar->write());
+    $response->headers->set('Content-Type','text/calendar');
+    return $response;
+  }
+
+  // Get all years
+  public function getYears(WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the years
+    $years = $webuntis->getYears()->findAll();
+  
+    // Serialize the result and respond
+    return $this->respondArray($years);
+  }
+  
+  // Get a single year
+  public function getYear(WebuntisInterface $webuntis, $yearId)
+  {
+    // Get the year
+    $year = $webuntis->getYears()->get((int)$yearId);
+    if ($year === null)
+      throw new NotFoundHttpException('The specified year does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($year);
+  }
+  
+  // Get all holidays
+  public function getHolidays(WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the holidays
+    $holidays = $webuntis->getHolidays()->findAll();
+    
+    // Serialize the result and respond
+    return $this->respondArray($holidays);
+  }
+  
+  // Get a single holiday
+  public function getHoliday(WebuntisInterface $webuntis, $holidayId)
+  {
+    // Get the holiday
+    $holiday = $webuntis->getHolidays()->get((int)$holidayId);
+    if ($holiday === null)
+      throw new NotFoundHttpException('The specified holiday does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($holiday);
+  }
+  
+  // Get all departments
+  public function getDepartments(WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the departments
+    $departments = $webuntis->getDepartments()->findAll();
+  
+    // Serialize the result and respond
+    return $this->respondArray($departments);
+  }
+  
+  // Get a single department
+  public function getDepartment(WebuntisInterface $webuntis, $departmentId)
+  {
+    // Get the department
+    $department = $webuntis->getDepartments()->get((int)$departmentId);
+    if ($department === null)
+      throw new NotFoundHttpException('The department room does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($department);
+  }
+  
+  // Get all classes for a year
+  public function getClasses(WebuntisInterface $webuntis, $yearId, Request $request)
+  {
+    // Get the year
+    $year = $webuntis->getYears()->get((int)$yearId);
+    if ($year === null)
+      throw new NotFoundHttpException('The specified year does not exist');
+  
+    // Get the classes
+    $classes = $webuntis->getClasses($year)->findAll();
+  
+    // Serialize the result and respond
+    return $this->respondArray($classes);
+  }
+  
+  // Get a single class for a year
+  public function getClass(WebuntisInterface $webuntis, $yearId, $classId)
+  {
+    // Get the year
+    $year = $webuntis->getYears()->get((int)$yearId);
+    if ($year === null)
+      throw new NotFoundHttpException('The specified year does not exist');
+  
+    // Get the class
+    $class = $webuntis->getClasses($year)->get((int)$classId);
+    if ($class === null)
+      throw new NotFoundHttpException('The specified class does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($class);
+  }
+  
+  // Get all subjects
+  public function getSubjects(WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the subjects
+    $subjects = $webuntis->getSubjects()->findAll();
+    
+    // Serialize the result and respond
+    return $this->respondArray($subjects);
+  }
+  
+  // Get a single subject
+  public function getSubject(WebuntisInterface $webuntis, $subjectId)
+  {
+    // Get the subject
+    $subject = $webuntis->getSubjects()->get((int)$subjectId);
+    if ($subject === null)
+      throw new NotFoundHttpException('The specified subject does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($subject);
+  }
+  
+  // Get all rooms
+  public function getRooms(WebuntisInterface $webuntis, Request $request)
+  {
+    // Get the rooms
+    $rooms = $webuntis->getRooms()->findAll();
+    
+    // Serialize the result and respond
+    return $this->respondArray($rooms);
+  }
+  
+  // Get a single room
+  public function getRoom(WebuntisInterface $webuntis, $roomId)
+  {
+    // Get the room
+    $room = $webuntis->getRooms()->get((int)$roomId);
+    if ($room === null)
+      throw new NotFoundHttpException('The specified room does not exist');
+  
+    // Serialize the result and respond
+    return $this->respond($room);
   }
   
   // Get the timetable for classes
-  public function getTimetable(WebuntisInterface $webuntis, $yearId, $list, Request $request)
+  public function getClassesTimetable(WebuntisInterface $webuntis, $yearId, $classIdList, Request $request)
   {
     // Get the year
     $year = $webuntis->getYears()->get((int)$yearId);
     if ($year === null)
       throw new NotFoundHttpException('The specified year does not exist');
     
-    // Get timetables
-    $timetable = array_column(array_map(function($listItem) use ($webuntis,$year) {
-      // Get the object
-      list($type,$id) = explode(':',$listItem,2);
-      
-      // Get the referred object
-      if ($type === 'class')
-      {
-        // Get the classes
-        $class = $webuntis->getClasses($year)->get((int)$id);
-        if ($class === null)
-          throw new NotFoundHttpException('The specified class does not exist');
-        
-        // Return the timetable
-        return $webuntis->getTimetable($class,$year->getStartDate(),$year->getEndDate())->findAll();
-      }
-      else if (type === 'subject')
-      {
-        return [];
-      }
-      else if (type === 'room')
-      {
-        return [];
-      }
-    },explode(',',$list)),1);
-    var_dump($timetable);
-    
-    // Sort the timetable by time
-    usort($timetable,[TimetableModel::class,'compare']);
-    
-    // Serialize the result and respond
-    $json = $this->serializer->serialize($timetable,'json');
-    return JsonResponse::fromJsonString($json);
-  }
-  
-  // Get the iCalendar for classes
-  public function getClassesCalendar(WebuntisInterface $webuntis, $yearId, $classIdList, Request $request)
-  {
-    // Get the year
-    $year = $webuntis->getYears()->get((int)$yearId);
-    if ($year === null)
-      throw new BadRequestHttpException('The specified year does not exist');
-  
     // Get the classes
-    $classes = array_map(function($classId) use ($webuntis, $year) {
+    $classes = array_map(function($classId) use ($webuntis, $year)
+    {
       $class = $webuntis->getClasses($year)->get((int)$classId);
       if ($class === null)
         throw new NotFoundHttpException('The specified class does not exist');
       return $class;
     },explode(',',$classIdList));
     
-    // Get the start and end date if specified
-    if ($request->query->has('startDate'))
-      $startDate = DateTime::createFromFormat('Y-m-d',$request->query->get('startDate'));
-    else
-      $startDate = $year->getStartDate();
-    
-    if ($request->query->has('endDate'))
-      $endDate = DateTime::createFromFormat('Y-m-d',$request->query->get('endDate'));
-    else
-      $endDate = $year->getEndDate();
+    // Respond the corresponding timetable
+    return $this->respondTimetable($classes,$year,$webuntis,$request);
+  }
   
-    // Get the complete timetable
-    $timetable = [];
-    foreach ($classes as $class)
+  // Get the timetable for subjects
+  public function getSubjectsTimetable(WebuntisInterface $webuntis, $subjectIdList, Request $request)
+  {
+    // Get the current year
+    $year = $webuntis->getYears()->contains(new DateTime);
+    
+    // Get the subjects
+    $subjects = array_map(function($subjectId) use ($webuntis)
     {
-      if ($class !== null)
-        $timetable = array_merge($timetable,$webuntis->getTimetable($class,$startDate,$endDate)->findAll());
-    }
+      $subject = $webuntis->getSubjects()->get((int)$subjectId);
+      if ($subject === null)
+        throw new NotFoundHttpException('The specified subject does not exist');
+      return $subject;
+    },explode(',',$subjectIdList));
     
-    // Create a calendar
-    $calendar = $this->createCalendar($timetable);
+    // Respond the corresponding timetable
+    return $this->respondTimetable($subjects,$year,$webuntis,$request);
+  }
   
-    // Respond the calendar
-    $response = new Response($calendar->write());
-    $response->headers->set('Content-Type','text/calendar');
-    return $response;
+  // Get the timetable for rooms
+  public function getRoomsTimetable(WebuntisInterface $webuntis, $roomIdList, Request $request)
+  {
+    // Get the current year
+    $year = $webuntis->getYears()->contains(new DateTime);
+    
+    // Get the rooms
+    $rooms = array_map(function($roomId) use ($webuntis)
+    {
+      $room = $webuntis->getRooms()->get((int)$roomId);
+      if ($room === null)
+        throw new NotFoundHttpException('The specified room does not exist');
+      return $room;
+    },explode(',',$roomIdList));
+    
+    // Respond the corresponding timetable
+    return $this->respondTimetable($rooms,$year,$webuntis,$request);
+  }
+  
+  // Get the calendar for classes
+  public function getClassesCalendar(WebuntisInterface $webuntis, $yearId, $classIdList, Request $request)
+  {    
+    // Get the year
+    $year = $webuntis->getYears()->get((int)$yearId);
+    if ($year === null)
+      throw new NotFoundHttpException('The specified year does not exist');
+    
+    // Get the classes
+    $classes = array_map(function($classId) use ($webuntis, $year)
+    {
+      $class = $webuntis->getClasses($year)->get((int)$classId);
+      if ($class === null)
+        throw new NotFoundHttpException('The specified class does not exist');
+      return $class;
+    },explode(',',$classIdList));
+    
+    // Respond the corresponding calendar
+    return $this->respondTimetableAsCalendar($classes,$year,$webuntis,$request);
+  }
+  
+  // Get the calendar for subjects
+  public function getSubjectsCalendar(WebuntisInterface $webuntis, $subjectIdList, Request $request)
+  {
+    // Get the current year
+    $year = $webuntis->getYears()->contains(new DateTime);
+    
+    // Get the subjects
+    $subjects = array_map(function($subjectId) use ($webuntis)
+    {
+      $subject = $webuntis->getSubjects()->get((int)$subjectId);
+      if ($subject === null)
+        throw new NotFoundHttpException('The specified subject does not exist');
+      return $subject;
+    },explode(',',$subjectIdList));
+    
+    // Respond the corresponding calendar
+    return $this->respondTimetableAsCalendar($subjects,$year,$webuntis,$request);
+  }
+  
+  // Get the calendar for rooms
+  public function getRoomsCalendar(WebuntisInterface $webuntis, $roomIdList, Request $request)
+  {
+    // Get the current year
+    $year = $webuntis->getYears()->contains(new DateTime);
+    
+    // Get the rooms
+    $rooms = array_map(function($roomId) use ($webuntis)
+    {
+      $room = $webuntis->getRooms()->get((int)$roomId);
+      if ($room === null)
+        throw new NotFoundHttpException('The specified room does not exist');
+      return $room;
+    },explode(',',$roomIdList));
+    
+    // Respond the corresponding calendar
+    return $this->respondTimetableAsCalendar($rooms,$year,$webuntis,$request);
   }
   
   // Connect to the application
@@ -298,15 +365,15 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers = $app['controllers_factory'];
     
     // Create the endpoint
-    $controllers->before(function(Request $request) 
+    $controllers->before(function(Request $request, Application $app) 
     {
       try
       {
         // Check if credentials are given
         if ($request->getUser() === null)
-          throw new UnauthorizedHttpException("Basic",'You must provide your credentials');
+          throw new UnauthorizedHttpException('Basic','You must provide your credentials');
         
-        // Create a new endpoint
+        // Create a new endpoint and log in to the endpoint
         $webuntis = new Webuntis($request->attributes->get('server'),$request->attributes->get('school'));
         $webuntis->login($request->getUser(),$request->getPassword());
         
@@ -342,8 +409,8 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/departments/',[$this,'getDepartments']);
     $controllers->get('/departments/{departmentId}',[$this,'getDepartment']);
     
-    $controllers->get('/classes/{yearId}/',[$this,'getClasses']);
-    $controllers->get('/classes/{yearId}/{classId}',[$this,'getClass']);
+    $controllers->get('/classes/year:{yearId}/',[$this,'getClasses']);
+    $controllers->get('/classes/year:{yearId}/{classId}',[$this,'getClass']);
     
     $controllers->get('/subjects/',[$this,'getSubjects']);
     $controllers->get('/subjects/{subjectId}',[$this,'getSubject']);
@@ -351,13 +418,13 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/rooms/',[$this,'getRooms']);
     $controllers->get('/rooms/{roomId}',[$this,'getRoom']);
     
-    $controllers->get('/years/{yearId}/timetable/{list}',[$this,'getTimetable']);
+    $controllers->get('/classes/{yearId}/{classIdList}/timetable',[$this,'getClassesTimetable']);
+    $controllers->get('/subjects/{subjectIdList}/timetable',[$this,'getSubjectsTimetable']);
+    $controllers->get('/rooms/{roomIdList}/timetable',[$this,'getRoomsTimetable']);
     
-    $controllers->get('/timetable/classes/{yearId}/{classIdList}.ics',[$this,'getClassesTimetable']);
-    $controllers->get('/timetable/subjects/{subjectIdList}.ics');
-    $controllers->get('/timetable/rooms/{roomIdList}.ics');
-    
-    // /v1/mese.webuntis.com/hku/timetable/class7-918,class7-917,class7-914,room247.ics
+    $controllers->get('/classes/{yearId}/{classIdList}/calendar.ics',[$this,'getClassesCalendar']);
+    $controllers->get('/subjects/{subjectIdList}/calendar.ics',[$this,'getSubjectsCalendar']);
+    $controllers->get('/rooms/{roomIdList}/calendar.ics',[$this,'getRoomsCalendar']);
     
     // Return the controllers
     return $controllers;
