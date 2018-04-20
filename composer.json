@@ -1,6 +1,6 @@
 {
   "name": "dengsn/webuntis-api",
-  "description": "REST API using the JSON-RPC backend of WebUntis",
+  "description": "WebUntis REST API using the JSON-RPC backend",
   "authors": [
     {
       "name": "dengsn",
@@ -11,13 +11,12 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
-    "php": ">=7.0",
-    "silex/silex": "~2.0",
-    "jdesrosiers/silex-cors-provider": "^1.0",
+    "php": "^7.0",
+    "silex/silex": "~2.2",
+    "jdesrosiers/silex-cors-provider": "~1.6",
     "fguillot/json-rpc": "~1.2",
-    "dengsn/icalendar": "dev-master",
-    "symfony/serializer": "~3.3",
-    "symfony/cache": "~3.3"
+    "eluceo/ical": "~0.14",
+    "symfony/serializer": "~3.4"
   },
   "autoload": {
     "psr-4": {

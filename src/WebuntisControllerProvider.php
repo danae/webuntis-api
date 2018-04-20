@@ -2,8 +2,8 @@
 namespace Webuntis;
 
 use DateTime;
-use ICalendar\Component\CalendarComponent;
-use ICalendar\Component\EventComponent;
+use Eluceo\iCal\Component\Calendar;
+use Eluceo\iCal\Component\Event;
 use Silex\Api\ControllerProviderInterface;
 use Silex\Application;
 use Silex\ControllerCollection;
@@ -75,26 +75,28 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $timetable = $this->getTimetable($objects,$year,$webuntis,$request);
     
     // Create an iCalendar for the timetable
-    $calendar = new CalendarComponent;
+    $calendar = new Calendar("-//dengsn//webuntis-api");
   
     // Add all events
     $now = new DateTime;
     foreach ($timetable as $t)
     {
-      $event = (new EventComponent)
-        ->setUID(sprintf("%s-%s-%d",$request->attributes->get('server'),$request->attributes->get('school'),$t->getId()))
-        ->setTimestamp($now)
-        ->setStartTime($t->getStartTime())
-        ->setEndTime($t->getEndTime())
-        ->setSummary(implode(', ',$t->getSubjects()))
-        ->setDescription(implode(', ',$t->getClasses()))
-       ->setLocation(implode(', ',$t->getRooms()));
-      $calendar->add($event);
+      $eventUid = sprintf("%s-%s-%d",$request->attributes->get('server'),$request->attributes->get('school'),$t->getId());
+      
+      $event = new Event($eventUid);
+      $event->setDtStamp($now);
+      $event->setDtStart($t->getStartTime());
+      $event->setDtEnd($t->getEndTime());
+      $event->setSummary(implode(', ',$t->getSubjects()));
+      $event->setDescription(implode(', ',$t->getClasses()));
+      $event->setLocation(implode(', ',$t->getRooms()));
+        
+      $calendar->addComponent($event);
     }
   
     // Respond the calendar
-    $response = new Response($calendar->write());
-    $response->headers->set('Content-Type','text/calendar');
+    $response = new Response($calendar->render());
+    $response->headers->set('Content-Type','text/calendar; charset=utf-8');
     return $response;
   }
 
@@ -409,8 +411,8 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/departments/',[$this,'getDepartments']);
     $controllers->get('/departments/{departmentId}',[$this,'getDepartment']);
     
-    $controllers->get('/classes/{yearId}/',[$this,'getClasses']);
-    $controllers->get('/classes/{yearId}/{classId}',[$this,'getClass']);
+    $controllers->get('/years/{yearId}/classes/',[$this,'getClasses']);
+    $controllers->get('/years/{yearId}/classes/{classId}',[$this,'getClass']);
     
     $controllers->get('/subjects/',[$this,'getSubjects']);
     $controllers->get('/subjects/{subjectId}',[$this,'getSubject']);
@@ -418,11 +420,11 @@ class WebuntisControllerProvider implements ControllerProviderInterface
     $controllers->get('/rooms/',[$this,'getRooms']);
     $controllers->get('/rooms/{roomId}',[$this,'getRoom']);
     
-    $controllers->get('/classes/{yearId}/{classIdList}/timetable',[$this,'getClassesTimetable']);
+    $controllers->get('/years/{yearId}/classes/{classIdList}/timetable',[$this,'getClassesTimetable']);
     $controllers->get('/subjects/{subjectIdList}/timetable',[$this,'getSubjectsTimetable']);
     $controllers->get('/rooms/{roomIdList}/timetable',[$this,'getRoomsTimetable']);
     
-    $controllers->get('/classes/{yearId}/{classIdList}/calendar.ics',[$this,'getClassesCalendar']);
+    $controllers->get('/years/{yearId}/classes/{classIdList}/calendar.ics',[$this,'getClassesCalendar']);
     $controllers->get('/subjects/{subjectIdList}/calendar.ics',[$this,'getSubjectsCalendar']);
     $controllers->get('/rooms/{roomIdList}/calendar.ics',[$this,'getRoomsCalendar']);
     
